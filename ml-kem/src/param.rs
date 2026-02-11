@@ -12,12 +12,12 @@
 
 use crate::{
     B32, Ciphertext, Kem,
-    algebra::{BaseField, Elem, NttVector},
+    algebra::{Elem, Int, NttVector},
 };
 use array::{
     Array,
     typenum::{
-        Const, ToUInt, U0, U2, U3, U4, U6, U12, U16, U32, U64, U384,
+        U0, U2, U3, U4, U6, U12, U32, U384,
         operator_aliases::{Prod, Sum},
     },
 };
@@ -26,60 +26,56 @@ use core::{
     ops::{Add, Div, Mul, Rem, Sub},
 };
 use module_lattice::{
-    ArraySize, Encode, EncodedPolynomialSize, EncodedVectorSize, EncodingSize, Field,
+    ArraySize, Encode, EncodedPolynomialSize, EncodedVectorSize, EncodingSize,
     VectorEncodingSize,
 };
 
 #[cfg(doc)]
 use crate::Seed;
 
-/// To speed up CBD sampling, we pre-compute all the bit-manipulations:
-///
-/// * Splitting a sampled integer into two parts
-/// * Counting the ones in each part
-/// * Taking the difference between the two counts mod q
-#[allow(clippy::integer_division_remainder_used, reason = "constant")]
-const fn ones_array<const B: usize, const N: usize, U>() -> Array<Elem, U>
-where
-    U: ArraySize<ArrayType<Elem> = [Elem; N]>,
-    Const<N>: ToUInt<Output = U>,
-{
-    let max = 1 << B;
-    let mut out = [Elem::new(0); N];
-    let mut x = 0usize;
-    while x < max {
-        let mut y = 0usize;
-        while y < max {
-            let x_ones = (x.count_ones() & 0xFFFF) as u16;
-            let y_ones = (y.count_ones() & 0xFFFF) as u16;
-            let i = x + (y << B);
-            out[i] = Elem::new((x_ones + BaseField::Q - y_ones) % BaseField::Q);
-
-            y += 1;
-        }
-        x += 1;
-    }
-    Array(out)
-}
-
 /// An integer that describes a bit length to be used in CBD sampling
 #[allow(unreachable_pub)]
 pub trait CbdSamplingSize: ArraySize {
     type SampleSize: EncodingSize;
-    type OnesSize: ArraySize;
-    const ONES: Array<Elem, Self::OnesSize>;
+
+    /// Compute a CBD sample from a decoded 2*eta-bit value.
+    ///
+    /// Splits the value into two eta-bit halves, counts the ones in each,
+    /// and returns the difference mod q. Uses only bitwise arithmetic,
+    /// which is inherently constant-time.
+    fn cbd_element(val: Int) -> Elem;
 }
 
 impl CbdSamplingSize for U2 {
     type SampleSize = U4;
-    type OnesSize = U16;
-    const ONES: Array<Elem, U16> = ones_array::<2, 16, U16>();
+
+    fn cbd_element(val: Int) -> Elem {
+        // val is 4 bits: b3 b2 b1 b0
+        let b0 = val & 1;
+        let b1 = (val >> 1) & 1;
+        let b2 = (val >> 2) & 1;
+        let b3 = (val >> 3) & 1;
+        let x = Elem::new(b0 + b1);
+        let y = Elem::new(b2 + b3);
+        x - y
+    }
 }
 
 impl CbdSamplingSize for U3 {
     type SampleSize = U6;
-    type OnesSize = U64;
-    const ONES: Array<Elem, U64> = ones_array::<3, 64, U64>();
+
+    fn cbd_element(val: Int) -> Elem {
+        // val is 6 bits: b5 b4 b3 b2 b1 b0
+        let b0 = val & 1;
+        let b1 = (val >> 1) & 1;
+        let b2 = (val >> 2) & 1;
+        let b3 = (val >> 3) & 1;
+        let b4 = (val >> 4) & 1;
+        let b5 = (val >> 5) & 1;
+        let x = Elem::new(b0 + b1 + b2);
+        let y = Elem::new(b3 + b4 + b5);
+        x - y
+    }
 }
 
 /// A `ParameterSet` captures the parameters that describe a particular instance of ML-KEM.

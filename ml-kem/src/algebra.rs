@@ -103,15 +103,14 @@ pub(crate) fn matrix_sample_ntt<K: ArraySize>(rho: &B32, transpose: bool) -> Ntt
 
 /// Algorithm 8: `SamplePolyCBD_eta(B)`
 ///
-/// To avoid all the bitwise manipulation in the algorithm as written, we reuse the logic in
-/// `ByteDecode`.  We decode the PRF output into integers with eta bits, then use
-/// `count_ones` to perform the summation described in the algorithm.
+/// We decode the PRF output into 2*eta-bit integers via `ByteDecode`, then compute each CBD
+/// sample using constant-time bitwise arithmetic (shifts, masks, and field subtraction).
 pub(crate) fn sample_poly_cbd<Eta>(B: &PrfOutput<Eta>) -> Polynomial
 where
     Eta: CbdSamplingSize,
 {
     let vals: Polynomial = Encode::<Eta::SampleSize>::decode(B);
-    Polynomial::new(vals.0.iter().map(|val| Eta::ONES[val.0 as usize]).collect())
+    Polynomial::new(vals.0.iter().map(|val| Eta::cbd_element(val.0)).collect())
 }
 
 pub(crate) fn sample_poly_vec_cbd<Eta, K>(sigma: &B32, start_n: u8) -> Vector<K>
