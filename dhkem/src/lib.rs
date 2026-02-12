@@ -31,7 +31,7 @@
 
 mod expander;
 
-pub use expander::{Expander, InvalidLength};
+pub use expander::{Expander, HpkeSuiteId, InvalidLength};
 pub use kem::{self, Decapsulator, Encapsulate, Generate, Kem, TryDecapsulate};
 
 #[cfg(feature = "ecdh")]
@@ -167,7 +167,7 @@ pub type NistP521DecapsulationKey = EcdhDecapsulationKey<p521::NistP521>;
 pub type NistP521EncapsulationKey = EcdhEncapsulationKey<p521::NistP521>;
 
 /// secp256k1 DHKEM.
-#[cfg(feature = "p521")]
+#[cfg(feature = "k256")]
 pub type Secp256k1Kem = EcdhKem<k256::Secp256k1>;
 /// secp256k1 ECDH Decapsulation Key.
 #[cfg(feature = "k256")]
@@ -175,3 +175,25 @@ pub type Secp256k1DecapsulationKey = EcdhDecapsulationKey<k256::Secp256k1>;
 /// secp256k1 ECDH Encapsulation Key.
 #[cfg(feature = "k256")]
 pub type Secp256k1EncapsulationKey = EcdhEncapsulationKey<k256::Secp256k1>;
+
+// HPKE suite ID implementations for standard DHKEM types (RFC 9180 §7.1).
+
+#[cfg(feature = "p256")]
+impl HpkeSuiteId for NistP256Kem {
+    const SUITE_ID: &'static [u8] = b"KEM\x00\x10";
+}
+
+#[cfg(feature = "p384")]
+impl HpkeSuiteId for NistP384Kem {
+    const SUITE_ID: &'static [u8] = b"KEM\x00\x11";
+}
+
+#[cfg(feature = "p521")]
+impl HpkeSuiteId for NistP521Kem {
+    const SUITE_ID: &'static [u8] = b"KEM\x00\x12";
+}
+
+#[cfg(feature = "x25519")]
+impl HpkeSuiteId for X25519Kem {
+    const SUITE_ID: &'static [u8] = b"KEM\x00\x20";
+}

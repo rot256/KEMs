@@ -15,8 +15,11 @@ const LABELED_INPUT_MAX: usize = PREFIXES_MAX + 64;
 /// HPKE version identifier from `RFC9180 §4`.
 const HPKE_VERSION_ID: &[u8] = b"HPKE-v1";
 
-/// HPKE suite ID from `RFC9180 §4`.
-const HPKE_SUITE_ID: &[u8] = b"KEM\x00\x10";
+/// Trait for DHKEM types that have an HPKE suite identifier as defined in `RFC9180 §7.1`.
+pub trait HpkeSuiteId {
+    /// The HPKE suite identifier for this KEM type (e.g. `b"KEM\x00\x10"` for P-256).
+    const SUITE_ID: &'static [u8];
+}
 
 /// Expander: wrapper for [RFC5869] HKDF-Expand operation which can be used for HPKE's
 /// `LabeledExtract` and `LabeledExpand` as described in [RFC9180 §4].
@@ -67,18 +70,20 @@ impl<D: EagerHash> Expander<D> {
     /// Create a new expander which uses the prefixes that implement HPKE `LabeledExtract` as
     /// described in [RFC9180 §4].
     ///
+    /// The suite ID is derived from the KEM type parameter `K`.
+    ///
     /// # Errors
     /// Returns [`InvalidLength`] if the concatenated prefixes are too long.
     ///
     /// [RFC9180 §4]: https://datatracker.ietf.org/doc/html/rfc9180#section-4
-    pub fn new_labeled_hpke(
+    pub fn new_labeled_hpke<K: HpkeSuiteId>(
         salt: &[u8],
         label: &[u8],
         input_key_material: &[u8],
     ) -> Result<Self, InvalidLength> {
         Self::new_prefixed(
             salt,
-            &[HPKE_VERSION_ID, HPKE_SUITE_ID, label],
+            &[HPKE_VERSION_ID, K::SUITE_ID, label],
             input_key_material,
         )
     }
@@ -117,11 +122,13 @@ impl<D: EagerHash> Expander<D> {
     /// Create a new expander which uses the prefixes that implement HPKE `LabeledExpand` as
     /// described in [RFC9180 §4].
     ///
+    /// The suite ID is derived from the KEM type parameter `K`.
+    ///
     /// # Errors
     /// Returns [`InvalidLength`] if label and/or info is too long.
     ///
     /// [RFC9180 §4]: https://datatracker.ietf.org/doc/html/rfc9180#section-4
-    pub fn expand_labeled_hpke(
+    pub fn expand_labeled_hpke<K: HpkeSuiteId>(
         &self,
         label: &[u8],
         info: &[u8],
@@ -132,7 +139,7 @@ impl<D: EagerHash> Expander<D> {
             &[
                 &okm_len.to_be_bytes(),
                 HPKE_VERSION_ID,
-                HPKE_SUITE_ID,
+                K::SUITE_ID,
                 label,
                 info,
             ],

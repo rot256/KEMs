@@ -14,9 +14,10 @@ type Expander = dhkem::Expander<Sha512>;
 
 fn extract_and_expand(dh: &[u8], kem_context: &[u8]) -> [u8; 64] {
     let mut out = [0u8; 64];
-    let expander = Expander::new_labeled_hpke(b"", b"eae_prk", dh).unwrap();
+    let expander =
+        Expander::new_labeled_hpke::<dhkem::NistP521Kem>(b"", b"eae_prk", dh).unwrap();
     expander
-        .expand_labeled_hpke(b"shared_secret", kem_context, &mut out)
+        .expand_labeled_hpke::<dhkem::NistP521Kem>(b"shared_secret", kem_context, &mut out)
         .unwrap();
     out
 }

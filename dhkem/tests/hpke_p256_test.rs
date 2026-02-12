@@ -46,9 +46,10 @@ impl TryCryptoRng for ConstantRng<'_> {}
 
 fn extract_and_expand(dh: &[u8], kem_context: &[u8]) -> [u8; 32] {
     let mut out = [0u8; 32];
-    let expander = Expander::new_labeled_hpke(b"", b"eae_prk", dh).unwrap();
+    let expander =
+        Expander::new_labeled_hpke::<dhkem::NistP256Kem>(b"", b"eae_prk", dh).unwrap();
     expander
-        .expand_labeled_hpke(b"shared_secret", kem_context, &mut out)
+        .expand_labeled_hpke::<dhkem::NistP256Kem>(b"shared_secret", kem_context, &mut out)
         .unwrap();
     out
 }
@@ -78,7 +79,6 @@ fn test_dhkem_p256_hkdf_sha256() {
     assert_eq!(&pke, &example_pke);
 
     let ss2 = skr.try_decapsulate(&pke).unwrap();
-
     assert_eq!(ss1, ss2);
 
     let kem_context = [example_pke, example_pkr].concat();
